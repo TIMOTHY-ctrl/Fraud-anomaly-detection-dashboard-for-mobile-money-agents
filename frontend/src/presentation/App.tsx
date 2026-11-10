@@ -6,14 +6,20 @@ import { LoginPage } from "./pages/LoginPage";
 type AppRoute = "login" | "forgot-password" | "dashboard";
 
 function getRoute(): AppRoute {
-  if (window.location.pathname === "/dashboard") return "dashboard";
-  if (window.location.pathname === "/forgot-password") return "forgot-password";
+  const path = window.location.hash.slice(1);
+  if (path === "/dashboard") return "dashboard";
+  if (path === "/forgot-password") return "forgot-password";
   return "login";
+}
+
+function getDemoRole(): UserRole {
+  const role = window.sessionStorage.getItem("nexaguard-demo-role");
+  return role === "agent" || role === "analyst" ? role : "manager";
 }
 
 export function App() {
   const [route, setRoute] = useState<AppRoute>(getRoute);
-  const [demoRole, setDemoRole] = useState<UserRole>("manager");
+  const [demoRole, setDemoRole] = useState<UserRole>(getDemoRole);
 
   useEffect(() => {
     const handlePopState = () => setRoute(getRoute());
@@ -22,14 +28,14 @@ export function App() {
   }, []);
 
   const navigate = (nextRoute: Exclude<AppRoute, "dashboard">) => {
-    const path = nextRoute === "login" ? "/login" : `/${nextRoute}`;
-    window.history.pushState(null, "", path);
+    window.history.pushState(null, "", `${import.meta.env.BASE_URL}#/${nextRoute}`);
     setRoute(nextRoute);
   };
 
   const enterDemo = (role: UserRole) => {
     setDemoRole(role);
-    window.history.pushState(null, "", "/dashboard");
+    window.sessionStorage.setItem("nexaguard-demo-role", role);
+    window.history.pushState(null, "", `${import.meta.env.BASE_URL}#/dashboard`);
     setRoute("dashboard");
   };
 

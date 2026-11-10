@@ -18,12 +18,4 @@ Create a production build with `npm run build`. Styling uses Tailwind CSS utilit
 - `src/infrastructure` provides the demo dashboard adapter.
 - `src/presentation` contains the dashboard UI, reusable components, and Tailwind-styled responsive views.
 
-The dashboard uses representative demo data; replace the infrastructure adapter with an authenticated API integration for live transaction data. Sign-in and password-reset screens are UI-only until an authentication service is connected. In development (`npm run dev`), the login form is prefilled with the network manager demo credentials. Select another demo role to autofill its account:
-
-| Role | Email |
-|---|---|
-| Network manager | `manager@nexaguard.demo` |
-| Mobile money agent | `agent@nexaguard.demo` |
-| Fraud analyst | `analyst@nexaguard.demo` |
-
-All three use the development-only password `Demo123!`. Select **Sign in** to enter the matching role's workspace, or use **Explore as…** to skip the login form. These are sample-only development credentials, not real authentication. While in the demo, use the **Demo persona** selector in the sidebar to switch roles.
+The dashboard uses representative demo data; replace the infrastructure adapter with an authenticated API integration for live transaction data. Authentication and password reset are not connected yet. For project demonstrations, enter any valid-format email and a password, choose a role, and continue to the dashboard; the credentials are not checked, sent, or saved. Do not enter a real password. You can also use **Explore as…** to enter without filling in the form. While in the demo, use the **Demo persona** selector in the sidebar to switch roles.

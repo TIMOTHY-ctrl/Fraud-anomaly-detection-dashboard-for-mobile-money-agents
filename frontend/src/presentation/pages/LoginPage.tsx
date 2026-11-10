@@ -16,17 +16,11 @@ const demoRoles: { role: UserRole; title: string; description: string; icon: typ
   { role: "analyst", title: "Fraud analyst", description: "Investigate suspicious activity", icon: ShieldAlert },
 ];
 
-const demoCredentials: Record<UserRole, { email: string; password: string }> = {
-  manager: { email: "manager@nexaguard.demo", password: "Demo123!" },
-  agent: { email: "agent@nexaguard.demo", password: "Demo123!" },
-  analyst: { email: "analyst@nexaguard.demo", password: "Demo123!" },
-};
-
 const fieldClass = "h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100";
 
 export function LoginPage({ mode, onNavigate, onEnterDemo }: LoginPageProps) {
-  const [email, setEmail] = useState(import.meta.env.DEV ? demoCredentials.manager.email : "");
-  const [password, setPassword] = useState(import.meta.env.DEV ? demoCredentials.manager.password : "");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>("manager");
@@ -34,16 +28,7 @@ export function LoginPage({ mode, onNavigate, onEnterDemo }: LoginPageProps) {
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage("");
-    if (import.meta.env.DEV) {
-      const demoAccount = demoRoles.find(({ role }) => demoCredentials[role].email === email.trim().toLowerCase() && demoCredentials[role].password === password);
-      if (demoAccount) {
-        onEnterDemo(demoAccount.role);
-        return;
-      }
-      setMessage("For local development, use one of the demo accounts below. Live authentication is not connected.");
-      return;
-    }
-    setMessage("Sign-in is not connected yet. Connect your authentication service to securely access your workspace.");
+    onEnterDemo(selectedRole);
   };
 
   const isForgotPassword = mode === "forgot-password";
@@ -54,7 +39,7 @@ export function LoginPage({ mode, onNavigate, onEnterDemo }: LoginPageProps) {
         <button className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-slate-800" onClick={() => onNavigate("login")} aria-label="NexaGuard sign in">
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-700 text-white"><ShieldCheck size={20} /></span>NexaGuard
         </button>
-        <span className="text-[10px] font-semibold tracking-widest text-slate-500">SECURE WORKSPACE ACCESS</span>
+        <span className="text-[10px] font-semibold tracking-widest text-slate-500">DEMO WORKSPACE ACCESS</span>
       </header>
 
       <div className="mx-auto my-4 grid min-h-[min(690px,calc(100vh-112px))] max-w-6xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5 md:grid-cols-2">
@@ -97,33 +82,32 @@ export function LoginPage({ mode, onNavigate, onEnterDemo }: LoginPageProps) {
               </>
             ) : (
               <>
-                <span className="text-[10px] font-bold tracking-widest text-blue-700">WELCOME BACK</span>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-800">Sign in to your workspace</h2>
-                <p className="mb-5 mt-2 text-sm leading-6 text-slate-500">Enter your details to access your fraud monitoring dashboard.</p>
+                <span className="text-[10px] font-bold tracking-widest text-blue-700">PROJECT DEMO</span>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-800">Enter the workspace</h2>
+                <p className="mb-5 mt-2 text-sm leading-6 text-slate-500">Enter any email and password, choose a role, and continue to the dashboard.</p>
                 <form className="space-y-3" onSubmit={handleLogin}>
                   <label className="block text-xs font-semibold text-slate-700" htmlFor="login-email">Work email</label>
                   <div className="relative"><Mail className="absolute left-3 top-3 text-slate-400" size={18} /><input className={`${fieldClass} pl-10`} id="login-email" type="email" autoComplete="email" placeholder="you@company.com" value={email} onChange={(event) => setEmail(event.target.value)} required /></div>
                   <div className="flex items-center justify-between"><label className="text-xs font-semibold text-slate-700" htmlFor="login-password">Password</label><button type="button" className="text-[11px] font-semibold text-blue-700 hover:text-blue-900" onClick={() => { setMessage(""); onNavigate("forgot-password"); }}>Forgot password?</button></div>
                   <div className="relative"><LockKeyhole className="absolute left-3 top-3 text-slate-400" size={18} /><input className={`${fieldClass} px-10`} id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} required /><button className="absolute right-2 top-1.5 grid h-8 w-8 place-items-center rounded text-slate-500 hover:bg-slate-100" type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
-                  <label className="flex w-fit items-center gap-2 py-1 text-xs text-slate-600"><input className="h-3.5 w-3.5 accent-blue-700" type="checkbox" /> Keep me signed in</label>
                   {message && <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800" role="alert">{message}</p>}
-                  <button className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-semibold text-white shadow-md shadow-blue-900/10 hover:bg-blue-800" type="submit">Sign in <ArrowRight size={17} /></button>
+                  <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">Demo access only: credentials are not verified or saved. Do not enter a real password.</p>
+                  <button className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-semibold text-white shadow-md shadow-blue-900/10 hover:bg-blue-800" type="submit">Continue to dashboard <ArrowRight size={17} /></button>
                 </form>
-                <div className="my-4 flex items-center gap-3 text-[9px] font-semibold tracking-widest text-slate-400"><span className="h-px flex-1 bg-slate-200" /> OR EXPLORE A DEMO <span className="h-px flex-1 bg-slate-200" /></div>
+                <div className="my-4 flex items-center gap-3 text-[9px] font-semibold tracking-widest text-slate-400"><span className="h-px flex-1 bg-slate-200" /> CHOOSE A DEMO ROLE <span className="h-px flex-1 bg-slate-200" /></div>
                 <div className="grid gap-2">
                   {demoRoles.map(({ role, title, description, icon: Icon }) => (
-                    <button key={role} type="button" className={`flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-left transition ${selectedRole === role ? "border-blue-400 bg-blue-50/70 ring-1 ring-blue-100" : "border-slate-200 hover:bg-slate-50"}`} onClick={() => { setSelectedRole(role); if (import.meta.env.DEV) { setEmail(demoCredentials[role].email); setPassword(demoCredentials[role].password); setMessage(""); } }} aria-pressed={selectedRole === role}>
+                    <button key={role} type="button" className={`flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-left transition ${selectedRole === role ? "border-blue-400 bg-blue-50/70 ring-1 ring-blue-100" : "border-slate-200 hover:bg-slate-50"}`} onClick={() => { setSelectedRole(role); setMessage(""); }} aria-pressed={selectedRole === role}>
                       <span className="grid h-8 w-8 place-items-center rounded-md bg-blue-100 text-blue-700"><Icon size={16} /></span><span className="min-w-0 flex-1"><strong className="block text-xs font-semibold text-slate-700">{title}</strong><small className="text-[10px] text-slate-500">{description}</small></span><span className={`grid h-4 w-4 place-items-center rounded-full border ${selectedRole === role ? "border-[5px] border-blue-700" : "border-slate-300"}`} />
                     </button>
                   ))}
                 </div>
-                {import.meta.env.DEV && <div className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 rounded-md border border-blue-100 bg-blue-50/70 p-2.5 text-[10px]"><span className="col-span-2 flex items-center gap-1 font-bold tracking-wide text-blue-700"><Fingerprint size={13} /> DEVELOPMENT DEMO LOGIN</span><strong className="text-slate-500">Email</strong><code className="text-slate-700">{demoCredentials[selectedRole].email}</code><strong className="text-slate-500">Password</strong><code className="text-slate-700">{demoCredentials[selectedRole].password}</code><small className="col-span-2 text-slate-500">Demo credentials only. Not connected to real authentication.</small></div>}
                 <button className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50" onClick={() => onEnterDemo(selectedRole)}><Fingerprint size={17} className="text-blue-700" /> Explore as {demoRoles.find(({ role }) => role === selectedRole)?.title} <ArrowRight size={15} /></button>
-                <p className="mt-2 text-center text-[10px] text-slate-400">Sample data only · No account required</p>
+                <p className="mt-2 text-center text-[10px] text-slate-400">Sample data only · No account required · Authentication will be added later</p>
               </>
             )}
           </div>
-          <footer className="mx-auto mt-5 flex w-full max-w-sm justify-between text-[10px] text-slate-400"><span className="flex items-center gap-1"><ShieldCheck size={14} className="text-blue-600" /> Your workspace is protected</span><span>© {new Date().getFullYear()} NexaGuard</span></footer>
+          <footer className="mx-auto mt-5 flex w-full max-w-sm justify-between text-[10px] text-slate-400"><span className="flex items-center gap-1"><ShieldCheck size={14} className="text-blue-600" /> Demo data only</span><span>© {new Date().getFullYear()} NexaGuard</span></footer>
         </section>
       </div>
     </main>

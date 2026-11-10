@@ -1,13 +1,14 @@
-import { Activity, Bell, ChevronDown, ChevronLeft, ChevronRight, Columns3, CreditCard, Download, Filter, LayoutGrid, Menu, Plus, Printer, RefreshCw, Search, Settings2, ShieldAlert, ShieldCheck, Table2, Users, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Activity, BarChart3, Bell, ChevronDown, ChevronLeft, ChevronRight, Columns3, CreditCard, Download, Filter, LayoutGrid, Menu, Plus, Printer, RefreshCw, Search, Settings2, ShieldAlert, ShieldCheck, Table2, Users, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { Alert } from "../../domain/entities/Alert";
 import type { Transaction } from "../../domain/entities/Transaction";
 import type { Agent } from "../../domain/entities/Agent";
 import { demoUsers, type UserRole } from "../../domain/entities/User";
 import { useDashboardData } from "../../application/hooks/useDashboardData";
 import { dashboardApi } from "../../infrastructure/api/dashboardApi";
-import { formatCurrency } from "../../domain/rules/riskCalculator";
+import { formatCurrency, getRiskLevel } from "../../domain/rules/riskCalculator";
 import { DataGrid, type GridRow } from "../components/DataGrid";
+import { AgentManagement, AnalyticsPanel, TransactionForm } from "../components/DashboardFeatures";
 import { RoleDashboards } from "../components/RoleDashboards";
 import logo from "../assets/logo.png";
 
@@ -16,6 +17,7 @@ const tables = [
   { name: "Risk alerts", icon: ShieldAlert },
   { name: "Agents", icon: Users },
   { name: "Detection rules", icon: Settings2 },
+  { name: "Analytics", icon: BarChart3 },
 ] as const;
 
 type TableName = (typeof tables)[number]["name"];
@@ -29,7 +31,11 @@ const ruleRows: GridRow[] = [
 ];
 
 export function DashboardPage({ role: initialRole }: { role: UserRole }) {
-  const { alerts, transactions, isLoading, error } = useDashboardData(dashboardApi);
+  const { alerts, transactions: sourceTransactions, isLoading, error } = useDashboardData(dashboardApi);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [directoryAgents, setDirectoryAgents] = useState<Agent[]>([]);
+  const [inactiveAgentIds, setInactiveAgentIds] = useState<Set<string>>(() => new Set());
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [role, setRole] = useState(initialRole);
   const [activeTable, setActiveTable] = useState<WorkspaceView>(initialRole === "manager" ? "Transactions" : initialRole === "agent" ? "My overview" : "Investigation queue");
   const [selectedItem, setSelectedItem] = useState<Alert | Transaction | null>(null);
@@ -40,10 +46,14 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
   const [compact, setCompact] = useState(false);
   const [refreshTime, setRefreshTime] = useState("just now");
   const [notice, setNotice] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | Transaction["status"]>("All");
+  const [typeFilter, setTypeFilter] = useState<"All" | Transaction["type"]>("All");
 
-  const agents = useMemo<Agent[]>(() => {
+  useEffect(() => {
+    if (isLoading) return;
+    setTransactions(sourceTransactions);
     const seen = new Map<string, Agent>();
-    transactions.forEach((transaction) => {
+    sourceTransactions.forEach((transaction) => {
       const current = seen.get(transaction.agentName);
       if (current) {
         current.transactions += 1;
@@ -60,8 +70,21 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
         });
       }
     });
-    return [...seen.values()];
-  }, [transactions]);
+    setDirectoryAgents([...seen.values()]);
+  }, [isLoading, sourceTransactions]);
+
+  const agents = useMemo(
+    () => directoryAgents.map((agent) => {
+      const agentTransactions = transactions.filter((transaction) => transaction.agentName === agent.name);
+      const highestRisk = agentTransactions.reduce((highest, transaction) => Math.max(highest, transaction.riskScore), 0);
+      return {
+        ...agent,
+        transactions: agentTransactions.length,
+        risk: getRiskLevel(highestRisk),
+      };
+    }),
+    [directoryAgents, transactions],
+  );
 
   const tableData = useMemo((): { headers: string[]; rows: GridRow[] } => {
     if (activeTable === "Risk alerts") {
@@ -81,6 +104,7 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
       };
     }
     if (activeTable === "Detection rules") return { headers: ["Rule ID", "Detection rule", "Signal", "Threshold", "Model status", "Triggered today"], rows: ruleRows };
+    if (activeTable === "Analytics") return { headers: [], rows: [] };
     return {
       headers: ["Transaction ID", "Agent", "Location", "Type", "Amount (UGX)", "Risk score", "Status", "Time"],
       rows: transactions.map((transaction) => ({
@@ -91,6 +115,15 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
     };
   }, [activeTable, agents, alerts, transactions]);
 
+  const filteredRows = activeTable === "Transactions"
+    ? tableData.rows.filter((row) => {
+      const transaction = row.detail;
+      if (!transaction || "title" in transaction) return false;
+      return (statusFilter === "All" || transaction.status === statusFilter)
+        && (typeFilter === "All" || transaction.type === typeFilter);
+    })
+    : tableData.rows;
+
   const filteredTables = tables.filter(({ name }) => name.toLowerCase().includes(sidebarQuery.toLowerCase()));
   const roleViews: WorkspaceView[] = role === "agent"
     ? ["My overview", "My transactions", "My alerts"]
@@ -99,12 +132,14 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
       : tables.map(({ name }) => name);
   const user = demoUsers[role];
   const isManager = role === "manager";
+  const activeAgents = agents.filter((agent) => !inactiveAgentIds.has(agent.id));
   const workspaceTitle = activeTable === "My overview" ? "My dashboard"
     : activeTable === "My transactions" ? "My transactions"
       : activeTable === "My alerts" ? "My security alerts"
         : activeTable === "Investigation queue" ? "Investigation queue"
           : activeTable === "Flagged transactions" ? "Flagged transactions"
-            : `${activeTable} List`;
+            : activeTable === "Analytics" ? "Network analytics"
+              : `${activeTable} List`;
 
   const changeRole = (nextRole: UserRole) => {
     setRole(nextRole);
@@ -114,7 +149,8 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
   };
 
   const handleExport = () => {
-    const lines = [tableData.headers, ...tableData.rows.map((row) => row.cells)]
+    const exportRows = filteredRows.filter((row) => `${row.id} ${row.cells.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
+    const lines = [tableData.headers, ...exportRows.map((row) => row.cells)]
       .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
       .join("\r\n");
     const url = URL.createObjectURL(new Blob([lines], { type: "text/csv;charset=utf-8;" }));
@@ -125,6 +161,55 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
     URL.revokeObjectURL(url);
     setNotice(`${activeTable} exported as CSV`);
     window.setTimeout(() => setNotice(""), 3000);
+  };
+
+  const addTransaction = (draft: Pick<Transaction, "agentName" | "location" | "amount" | "type">) => {
+    const agent = agents.find(({ name }) => name === draft.agentName);
+    if (!agent) {
+      setNotice("Select an active agent before adding a transaction.");
+      return;
+    }
+    const riskScore = draft.amount >= 150000 ? 90 : draft.amount >= 75000 ? 68 : draft.amount >= 30000 ? 32 : 12;
+    const transaction: Transaction = {
+      ...draft,
+      id: `TXN-${Date.now()}`,
+      agentInitials: agent.initials,
+      currency: "UGX",
+      time: new Date().toLocaleTimeString("en-UG"),
+      riskScore,
+      status: riskScore >= 85 ? "Flagged" : riskScore >= 60 ? "Reviewing" : "Cleared",
+    };
+    setTransactions((current) => [transaction, ...current]);
+    setShowTransactionForm(false);
+    setNotice(`${transaction.id} added to the demo transactions.`);
+  };
+
+  const addAgent = (name: string, location: string) => {
+    const normalizedName = name.toLowerCase();
+    if (directoryAgents.some((agent) => agent.name.toLowerCase() === normalizedName)) {
+      setNotice("An agent with that name already exists.");
+      return;
+    }
+    const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
+    const agent: Agent = {
+      id: `AGT-${Date.now()}`,
+      name,
+      initials,
+      location,
+      transactions: 0,
+      risk: "Low",
+    };
+    setDirectoryAgents((current) => [...current, agent]);
+    setNotice(`${name} added to the demo agent directory.`);
+  };
+
+  const toggleAgentStatus = (agentId: string) => {
+    setInactiveAgentIds((current) => {
+      const next = new Set(current);
+      if (next.has(agentId)) next.delete(agentId);
+      else next.add(agentId);
+      return next;
+    });
   };
 
   const roleMenu = isManager
@@ -176,11 +261,22 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
         </section>
 
         {isManager && <section className="flex min-h-[54px] items-stretch overflow-x-auto border-b border-slate-300 bg-zinc-50 px-2 print:hidden sm:px-4" aria-label="Table actions">
-          <button className="flex shrink-0 items-center gap-2 border-b-[3px] border-blue-700 px-3 text-xs text-slate-700" onClick={() => {
+          {activeTable === "Transactions" && <button className="flex shrink-0 items-center gap-2 border-b-[3px] border-blue-700 px-3 text-xs text-slate-700 disabled:opacity-50" onClick={() => setShowTransactionForm(true)} disabled={activeAgents.length === 0}><Plus size={20} className="text-blue-700" /><span>Add transaction</span></button>}
+          {activeTable === "Transactions" && <div className="flex shrink-0 items-center gap-2 px-2">
+            <label className="text-[11px] text-slate-500">Status</label>
+            <select className="h-8 border border-slate-300 bg-white px-2 text-xs text-slate-700" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} aria-label="Filter by transaction status">
+              <option>All</option><option>Flagged</option><option>Reviewing</option><option>Cleared</option>
+            </select>
+            <label className="text-[11px] text-slate-500">Type</label>
+            <select className="h-8 border border-slate-300 bg-white px-2 text-xs text-slate-700" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as typeof typeFilter)} aria-label="Filter by transaction type">
+              <option>All</option><option>Cash in</option><option>Cash out</option><option>Transfer</option>
+            </select>
+          </div>}
+          {activeTable !== "Transactions" && <button className="flex shrink-0 items-center gap-2 border-b-[3px] border-blue-700 px-3 text-xs text-slate-700" onClick={() => {
             const firstRecord = tableData.rows.find((row) => row.detail)?.detail;
             if (firstRecord) setSelectedItem(firstRecord);
             else setNotice("There are no records to review in this table.");
-          }}><Plus size={20} className="text-blue-700" /><span>New review</span></button>
+          }}><Plus size={20} className="text-blue-700" /><span>New review</span></button>}
           <button className={`flex shrink-0 items-center gap-2 px-3 text-xs text-slate-700 hover:bg-blue-50 ${compact ? "bg-blue-50" : ""}`} onClick={() => setCompact((value) => !value)}><LayoutGrid size={18} className="text-blue-700" /><span>{compact ? "Comfortable view" : "Table view"}</span></button>
           <button className="flex shrink-0 items-center gap-2 px-3 text-xs text-slate-700 hover:bg-blue-50" onClick={() => { setRefreshTime("just now"); setNotice("Table refreshed"); window.setTimeout(() => setNotice(""), 2500); }}><RefreshCw size={18} className="text-blue-700" /><span>Refresh</span></button>
           <button className="hidden shrink-0 items-center gap-2 px-3 text-xs text-slate-700 hover:bg-blue-50 sm:flex" onClick={handleExport}><Download size={18} className="text-blue-700" /><span>Export CSV</span></button>
@@ -193,7 +289,9 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
         {notice && <div className="m-3 flex items-center justify-between border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss message"><X size={14} /></button></div>}
         {isLoading ? <div className="flex min-h-72 items-center justify-center gap-3 text-sm text-slate-500"><span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-100 border-t-blue-600" /> Loading monitoring data…</div>
           : !isManager ? <RoleDashboards role={role} view={activeTable} alerts={alerts} transactions={transactions} onSelect={setSelectedItem} />
-            : <DataGrid headers={tableData.headers} rows={tableData.rows} query={query} onSelect={setSelectedItem} showLastColumn={showLastColumn} compact={compact} />}
+            : activeTable === "Analytics" ? <AnalyticsPanel transactions={transactions} />
+              : activeTable === "Agents" ? <AgentManagement agents={agents} inactiveAgentIds={inactiveAgentIds} onAddAgent={addAgent} onToggleAgent={toggleAgentStatus} />
+                : <DataGrid headers={tableData.headers} rows={filteredRows} query={query} onSelect={setSelectedItem} showLastColumn={showLastColumn} compact={compact} />}
         <footer className="flex justify-between px-4 py-3 text-[10px] text-slate-500 print:hidden"><span className="flex items-center gap-1.5"><ShieldCheck size={14} className="text-blue-700" /> NexaGuard fraud intelligence</span><span className="flex items-center gap-1.5">Last synced {refreshTime}<i className="h-1.5 w-1.5 rounded-full bg-emerald-500" /></span></footer>
       </main>
 
@@ -206,6 +304,7 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
         <div className="my-4 grid grid-cols-3 gap-3 border-y border-slate-200 py-4 text-[11px]"><span className="grid gap-1 text-slate-500">Agent<strong className="text-slate-700">{selectedItem.agentName}</strong></span><span className="grid gap-1 text-slate-500">Amount<strong className="text-slate-700">{selectedItem.amount === undefined ? "—" : formatCurrency(selectedItem.amount, "UGX")}</strong></span><span className="grid gap-1 text-slate-500">Risk<strong className="text-slate-700">{"riskScore" in selectedItem ? `${selectedItem.riskScore} / 100` : selectedItem.severity}</strong></span></div>
         <button className="flex h-10 w-full items-center justify-center gap-2 rounded bg-blue-700 text-sm font-semibold text-white hover:bg-blue-800" onClick={() => setSelectedItem(null)}>Mark as reviewed <ChevronRight size={16} /></button>
       </section></div>}
+      {showTransactionForm && <TransactionForm agents={activeAgents} onClose={() => setShowTransactionForm(false)} onSubmit={addTransaction} />}
     </div>
   );
 }

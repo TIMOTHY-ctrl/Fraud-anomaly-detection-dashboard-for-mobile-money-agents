@@ -9,6 +9,7 @@ import { dashboardApi } from "../../infrastructure/api/dashboardApi";
 import { formatCurrency } from "../../domain/rules/riskCalculator";
 import { DataGrid, type GridRow } from "../components/DataGrid";
 import { RoleDashboards } from "../components/RoleDashboards";
+import logo from "../assets/logo.png";
 
 const tables = [
   { name: "Transactions", icon: CreditCard },
@@ -139,7 +140,7 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
 
       <aside className={`fixed inset-y-0 left-0 z-30 flex w-[270px] -translate-x-full flex-col border-r border-slate-300 bg-zinc-100 pt-4 transition-transform print:hidden md:translate-x-0 ${mobileNavOpen ? "translate-x-0" : ""}`}>
         <div className="flex h-[57px] shrink-0 items-center gap-3 border-b border-slate-300 px-4">
-          <span className="grid h-11 w-11 place-items-center bg-blue-700 text-white"><ShieldCheck size={21} /></span>
+          <img className="h-11 w-11 object-contain" src={logo} alt="NexaGuard logo" />
           <span className="flex-1 text-[19px] font-bold text-slate-800">NexaGuard<small className="mt-0.5 block text-[10px] font-normal text-slate-500">Fraud monitoring workspace</small></span>
           <button className="grid h-7 w-7 place-items-center text-slate-600 md:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close menu"><X size={18} /></button>
         </div>

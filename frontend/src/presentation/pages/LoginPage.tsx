@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Check, CreditCard, Eye, EyeOff, Fingerprint, LockKeyhole, Mail, ShieldAlert, ShieldCheck, Sparkles, Users } from "lucide-react";
 import type { UserRole } from "../../domain/entities/User";
+import logo from "../assets/logo.png";
 
 type AuthMode = "login" | "forgot-password";
 
@@ -37,7 +38,7 @@ export function LoginPage({ mode, onNavigate, onEnterDemo }: LoginPageProps) {
     <main className="min-h-screen bg-slate-100 px-3 sm:px-5 lg:px-10">
       <header className="mx-auto flex h-16 max-w-6xl items-center justify-between border-b border-slate-200">
         <button className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-slate-800" onClick={() => onNavigate("login")} aria-label="NexaGuard sign in">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-700 text-white"><ShieldCheck size={20} /></span>NexaGuard
+          <img className="h-9 w-9 object-contain" src={logo} alt="" />NexaGuard
         </button>
         <span className="text-[10px] font-semibold tracking-widest text-slate-500">DEMO WORKSPACE ACCESS</span>
       </header>

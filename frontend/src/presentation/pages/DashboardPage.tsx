@@ -10,6 +10,7 @@ import { formatCurrency, getRiskLevel } from "../../domain/rules/riskCalculator"
 import { DataGrid, type GridRow } from "../components/DataGrid";
 import { AgentManagement, AnalyticsPanel, TransactionForm } from "../components/DashboardFeatures";
 import { RoleDashboards } from "../components/RoleDashboards";
+import { BillingPage, type SubscriptionPlanId } from "./BillingPage";
 import logo from "../assets/logo.png";
 
 const tables = [
@@ -21,7 +22,7 @@ const tables = [
 ] as const;
 
 type TableName = (typeof tables)[number]["name"];
-type WorkspaceView = TableName | "My overview" | "My transactions" | "My alerts" | "Investigation queue" | "Flagged transactions";
+type WorkspaceView = TableName | "My overview" | "My transactions" | "My alerts" | "Investigation queue" | "Flagged transactions" | "Billing";
 
 const ruleRows: GridRow[] = [
   { id: "RUL-001", cells: ["RUL-001", "Unusual transaction velocity", "Rapid repeat transactions", "10+ in 5 min", "Active", "8"] },
@@ -46,6 +47,7 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
   const [compact, setCompact] = useState(false);
   const [refreshTime, setRefreshTime] = useState("just now");
   const [notice, setNotice] = useState("");
+  const [subscription, setSubscription] = useState<{ planId: SubscriptionPlanId; renewalDate: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState<"All" | Transaction["status"]>("All");
   const [typeFilter, setTypeFilter] = useState<"All" | Transaction["type"]>("All");
 
@@ -139,7 +141,8 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
         : activeTable === "Investigation queue" ? "Investigation queue"
           : activeTable === "Flagged transactions" ? "Flagged transactions"
             : activeTable === "Analytics" ? "Network analytics"
-              : `${activeTable} List`;
+              : activeTable === "Billing" ? "Billing"
+                : `${activeTable} List`;
 
   const changeRole = (nextRole: UserRole) => {
     setRole(nextRole);
@@ -225,7 +228,7 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
 
       <aside className={`fixed inset-y-0 left-0 z-30 flex w-[270px] -translate-x-full flex-col border-r border-slate-300 bg-zinc-100 pt-4 transition-transform print:hidden md:translate-x-0 ${mobileNavOpen ? "translate-x-0" : ""}`}>
         <div className="flex h-[57px] shrink-0 items-center gap-3 border-b border-slate-300 px-4">
-          <img className="h-11 w-11 object-contain" src={logo} alt="NexaGuard logo" />
+          <img className="h-14 w-14 object-contain" src={logo} alt="NexaGuard logo" />
           <span className="flex-1 text-[19px] font-bold text-slate-800">NexaGuard<small className="mt-0.5 block text-[10px] font-normal text-slate-500">Fraud monitoring workspace</small></span>
           <button className="grid h-7 w-7 place-items-center text-slate-600 md:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close menu"><X size={18} /></button>
         </div>
@@ -240,6 +243,12 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
           ))}
           {isManager && filteredTables.length === 0 && <p className="px-5 py-3 text-xs text-slate-500">No matching objects</p>}
           {isManager && <button className="flex items-center gap-2 px-6 py-3 text-left text-xs text-blue-700 hover:text-blue-900" onClick={() => setNotice("Contact your workspace administrator to add a monitoring table.")}><Plus size={17} /> New table</button>}
+        </nav>
+        <div className="mt-6 flex h-8 items-center gap-2 px-4 text-slate-600"><strong className="flex-1 text-[11px]">ACCOUNT</strong><span className="text-[10px]">1</span><ChevronDown size={14} /></div>
+        <nav className="grid">
+          <button className={`flex h-10 items-center gap-3 border-l-[3px] px-5 text-xs ${activeTable === "Billing" ? "border-blue-600 bg-blue-700 text-white" : "border-transparent text-slate-700 hover:bg-slate-200"}`} onClick={() => { setActiveTable("Billing"); setMobileNavOpen(false); setQuery(""); }}>
+            <CreditCard size={17} /><span>Billing</span>
+          </button>
         </nav>
         {isManager && <><div className="mt-6 flex h-8 items-center gap-2 px-4 text-slate-600"><strong className="flex-1 text-[11px]">WORKSPACE</strong><span className="text-[10px]">2</span><ChevronDown size={14} /></div><nav className="grid"><button className="flex h-10 items-center gap-3 px-5 text-xs text-slate-700 hover:bg-slate-200" onClick={() => setNotice("Model settings are managed by your workspace administrator.")}><Settings2 size={17} className="text-blue-700" /> Model settings</button><button className="flex h-10 items-center gap-3 px-5 text-xs text-slate-700 hover:bg-slate-200" onClick={() => setNotice("Monitoring is active across your agent network.")}><Activity size={17} className="text-blue-700" /> Network health</button></nav></>}
         <div className="mt-auto">
@@ -257,10 +266,10 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
 
         <section className="flex min-h-[127px] flex-col items-start justify-center gap-4 bg-blue-700 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <div><div className="text-[10px] font-bold tracking-widest text-blue-100">{role === "agent" ? "MOBILE MONEY AGENT" : role === "analyst" ? "FRAUD OPERATIONS · LIVE QUEUE" : "FRAUD & ANOMALY DETECTION"}</div><h1 className="mt-2 text-3xl font-light tracking-tight sm:text-4xl">{workspaceTitle}</h1><p className="hidden text-xs text-blue-100">{role === "agent" ? "Your transactions and security updates, all in one place." : role === "analyst" ? "Investigate suspicious activity and assess risk across the network." : "Review and manage activity across your mobile money agent network."}</p></div>
-          {isManager && <div className="flex w-full items-center gap-4 sm:w-auto"><label className="flex h-10 min-w-0 flex-1 items-center gap-2 border border-blue-100 bg-white px-3 text-slate-500 sm:w-72 sm:flex-none"><Search size={17} /><input className="min-w-0 flex-1 text-xs text-slate-700 outline-none placeholder:text-slate-400" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${activeTable.toLowerCase()}…`} aria-label={`Search ${activeTable.toLowerCase()}`} /></label><button className="flex items-center gap-2 text-xs text-white" onClick={() => window.print()}><Printer size={19} /><span>Print list</span></button></div>}
+          {isManager && activeTable !== "Billing" && <div className="flex w-full items-center gap-4 sm:w-auto"><label className="flex h-10 min-w-0 flex-1 items-center gap-2 border border-blue-100 bg-white px-3 text-slate-500 sm:w-72 sm:flex-none"><Search size={17} /><input className="min-w-0 flex-1 text-xs text-slate-700 outline-none placeholder:text-slate-400" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${activeTable.toLowerCase()}…`} aria-label={`Search ${activeTable.toLowerCase()}`} /></label><button className="flex items-center gap-2 text-xs text-white" onClick={() => window.print()}><Printer size={19} /><span>Print list</span></button></div>}
         </section>
 
-        {isManager && <section className="flex min-h-[54px] items-stretch overflow-x-auto border-b border-slate-300 bg-zinc-50 px-2 print:hidden sm:px-4" aria-label="Table actions">
+        {isManager && activeTable !== "Billing" && <section className="flex min-h-[54px] items-stretch overflow-x-auto border-b border-slate-300 bg-zinc-50 px-2 print:hidden sm:px-4" aria-label="Table actions">
           {activeTable === "Transactions" && <button className="flex shrink-0 items-center gap-2 border-b-[3px] border-blue-700 px-3 text-xs text-slate-700 disabled:opacity-50" onClick={() => setShowTransactionForm(true)} disabled={activeAgents.length === 0}><Plus size={20} className="text-blue-700" /><span>Add transaction</span></button>}
           {activeTable === "Transactions" && <div className="flex shrink-0 items-center gap-2 px-2">
             <label className="text-[11px] text-slate-500">Status</label>
@@ -287,9 +296,14 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
 
         {error && <div className="m-3 border border-red-200 bg-red-50 p-3 text-xs text-red-700" role="alert">{error}</div>}
         {notice && <div className="m-3 flex items-center justify-between border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss message"><X size={14} /></button></div>}
-        {isLoading ? <div className="flex min-h-72 items-center justify-center gap-3 text-sm text-slate-500"><span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-100 border-t-blue-600" /> Loading monitoring data…</div>
-          : !isManager ? <RoleDashboards role={role} view={activeTable} alerts={alerts} transactions={transactions} onSelect={setSelectedItem} />
-            : activeTable === "Analytics" ? <AnalyticsPanel transactions={transactions} />
+        {activeTable === "Billing" ? <BillingPage
+          currentPlan={subscription?.planId ?? null}
+          renewalDate={subscription?.renewalDate ?? ""}
+          onSubscribe={(planId, renewalDate) => setSubscription({ planId, renewalDate })}
+        />
+          : isLoading ? <div className="flex min-h-72 items-center justify-center gap-3 text-sm text-slate-500"><span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-100 border-t-blue-600" /> Loading monitoring data…</div>
+            : !isManager ? <RoleDashboards role={role} view={activeTable} alerts={alerts} transactions={transactions} onSelect={setSelectedItem} />
+              : activeTable === "Analytics" ? <AnalyticsPanel transactions={transactions} />
               : activeTable === "Agents" ? <AgentManagement agents={agents} inactiveAgentIds={inactiveAgentIds} onAddAgent={addAgent} onToggleAgent={toggleAgentStatus} />
                 : <DataGrid headers={tableData.headers} rows={filteredRows} query={query} onSelect={setSelectedItem} showLastColumn={showLastColumn} compact={compact} />}
         <footer className="flex justify-between px-4 py-3 text-[10px] text-slate-500 print:hidden"><span className="flex items-center gap-1.5"><ShieldCheck size={14} className="text-blue-700" /> NexaGuard fraud intelligence</span><span className="flex items-center gap-1.5">Last synced {refreshTime}<i className="h-1.5 w-1.5 rounded-full bg-emerald-500" /></span></footer>

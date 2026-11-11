@@ -41,7 +41,6 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
   const [activeTable, setActiveTable] = useState<WorkspaceView>(initialRole === "manager" ? "Transactions" : initialRole === "agent" ? "My overview" : "Investigation queue");
   const [selectedItem, setSelectedItem] = useState<Alert | Transaction | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [sidebarQuery, setSidebarQuery] = useState("");
   const [query, setQuery] = useState("");
   const [showLastColumn, setShowLastColumn] = useState(true);
   const [compact, setCompact] = useState(false);
@@ -126,7 +125,6 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
     })
     : tableData.rows;
 
-  const filteredTables = tables.filter(({ name }) => name.toLowerCase().includes(sidebarQuery.toLowerCase()));
   const roleViews: WorkspaceView[] = role === "agent"
     ? ["My overview", "My transactions", "My alerts"]
     : role === "analyst"
@@ -216,7 +214,7 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
   };
 
   const roleMenu = isManager
-    ? filteredTables.map(({ name, icon }) => ({ name, icon }))
+    ? tables.map(({ name, icon }) => ({ name, icon }))
     : roleViews.map((name) => ({
       name,
       icon: name.toLowerCase().includes("alert") || name.toLowerCase().includes("flagged") ? ShieldAlert : name.toLowerCase().includes("transaction") ? CreditCard : role === "agent" ? Users : Activity,
@@ -226,14 +224,13 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
     <div className="min-h-screen bg-zinc-200">
       {mobileNavOpen && <button className="fixed inset-0 z-20 bg-slate-950/50 md:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" />}
 
-      <aside className={`fixed inset-y-0 left-0 z-30 flex w-[270px] -translate-x-full flex-col border-r border-slate-300 bg-zinc-100 pt-4 transition-transform print:hidden md:translate-x-0 ${mobileNavOpen ? "translate-x-0" : ""}`}>
+      <aside className={`fixed inset-y-0 left-0 z-30 flex w-[270px] -translate-x-full flex-col overflow-y-auto overscroll-contain border-r border-slate-300 bg-zinc-100 pt-4 transition-transform print:hidden md:translate-x-0 ${mobileNavOpen ? "translate-x-0" : ""}`}>
         <div className="flex h-[57px] shrink-0 items-center gap-3 border-b border-slate-300 px-4">
           <img className="h-14 w-14 object-contain" src={logo} alt="NexaGuard logo" />
           <span className="flex-1 text-[19px] font-bold text-slate-800">NexaGuard<small className="mt-0.5 block text-[10px] font-normal text-slate-500">Fraud monitoring workspace</small></span>
           <button className="grid h-7 w-7 place-items-center text-slate-600 md:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close menu"><X size={18} /></button>
         </div>
         <div className="mt-5 flex items-center justify-between px-4 pb-3 text-lg text-slate-700"><span>{isManager ? "All monitoring objects" : role === "agent" ? "My workspace" : "Fraud operations"}</span><ChevronLeft size={17} /></div>
-        {isManager && <label className="mx-3 mb-4 flex h-9 items-center gap-2 border border-slate-300 bg-white px-2.5 text-slate-500"><input className="min-w-0 flex-1 text-xs outline-none placeholder:text-slate-400" value={sidebarQuery} onChange={(event) => setSidebarQuery(event.target.value)} placeholder="Search objects…" aria-label="Search monitoring objects" /><Search size={16} /></label>}
         <div className="flex h-8 items-center gap-2 px-4 text-slate-600"><strong className="flex-1 text-[11px]">{isManager ? "TABLES" : role === "agent" ? "MY ACTIVITY" : "INVESTIGATIONS"}</strong><span className="text-[10px]">{roleViews.length}</span><ChevronDown size={14} /></div>
         <nav className="grid" aria-label="Monitoring objects">
           {roleMenu.map(({ name, icon: Icon }) => (
@@ -241,7 +238,6 @@ export function DashboardPage({ role: initialRole }: { role: UserRole }) {
               <Icon size={18} /><span className="flex-1">{name}</span>{name === "Risk alerts" && <span className="rounded-full bg-blue-800 px-1.5 py-0.5 text-[9px]">{alerts.length}</span>}
             </button>
           ))}
-          {isManager && filteredTables.length === 0 && <p className="px-5 py-3 text-xs text-slate-500">No matching objects</p>}
           {isManager && <button className="flex items-center gap-2 px-6 py-3 text-left text-xs text-blue-700 hover:text-blue-900" onClick={() => setNotice("Contact your workspace administrator to add a monitoring table.")}><Plus size={17} /> New table</button>}
         </nav>
         <div className="mt-6 flex h-8 items-center gap-2 px-4 text-slate-600"><strong className="flex-1 text-[11px]">ACCOUNT</strong><span className="text-[10px]">1</span><ChevronDown size={14} /></div>
